@@ -4,13 +4,13 @@ support_name = '@renzokz' #Имя саппорта, будет выводить�
 token = '7684111869:AAFMIAEfA9oLaknk5GUYBDrpgr1uk-HNLZU' #Токен бота
 client_id = "" #client_id, получается при создании приложения Юмани
 number_qiwi = '00000000' #Номер вашего QIWI кошелька
-token_qiwi = '' #Токен киви
-token_youmoney = ''  # Токен ЮМани
-p2p_closed_token =''  #Приватный ключ P2P QIWI
-open_coinbase = '' #Публичный ключ CoinBase
-close_coinbase = '' #Секретный токен CoinBase
-secret_crystal = ''  #Секретный ключ кассы CrystalPay
-login_crystal = ''  # Логин кассы CrystalPay
+token_qiwi = 'eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ==' #Токен киви
+token_youmoney = 'eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ=='  # Токен ЮМани
+p2p_closed_token ='eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ=='  #Приватный ключ P2P QIWI
+open_coinbase = 'eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ==' #Публичный ключ CoinBase
+close_coinbase = 'eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ==' #Секретный токен CoinBase
+secret_crystal = 'eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ=='  #Секретный ключ кассы CrystalPay
+login_crystal = 'eyJ2IjoiMiIsInQiOiJkZWI0ZTI4Mi03MzM1LTRiNzUtODFkMS0yZjY3ZTE1YjU0NzgifQ=='  # Логин кассы CrystalPay
 
 #Не трогать, значения должны быть по умолчанию
 balance = 0
