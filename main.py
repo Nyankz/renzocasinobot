@@ -10,14 +10,18 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.client.default import DefaultBotProperties
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "7606518006:AAGSgmiBquOUZoGAaOSrnp5fFOfgJ5S3R3s"
-CHANNEL_ID = -1002835648324  # Твой канал ID
-ADMINS = [764515145]         # Твои Telegram ID
+CHANNEL_ID = -1002835648324
+ADMINS = [764515145]
 
 # === ИНИЦИАЛИЗАЦИЯ ===
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 dp.include_router(router)
@@ -168,7 +172,7 @@ async def timer_check():
                 await stop_battle_by_id(b[0])
         await asyncio.sleep(5)
 
-# === Батл тоқтату (авто және /stop үшін)
+# === Батл тоқтату (авто немесе /stop)
 async def stop_battle_by_id(battle_id):
     c.execute("SELECT * FROM battles WHERE id=? AND is_active=1", (battle_id,))
     b = c.fetchone()
@@ -182,7 +186,7 @@ async def stop_battle_by_id(battle_id):
     text = f"<b>⛔ Батл аяқталды!</b>\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос\n\n🥇 Жеңімпаз: {winner} 🎉"
     await bot.edit_message_text(text, b[4], b[3])
 
-# === /stop → тізімнен таңдату
+# === /stop — белсенді батл тізімі
 @router.message(F.text == "/stop")
 async def stop_battle_menu(message: Message):
     if message.from_user.id not in ADMINS:
@@ -201,3 +205,8 @@ async def stop_selected_battle(callback: CallbackQuery):
     battle_id = int(callback.data.split(":")[1])
     await stop_battle_by_id(battle_id)
     await callback.answer("Батл тоқтатылды.")
+
+# === Ботты іске қосу ===
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(dp.start_polling(bot))
