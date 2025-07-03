@@ -14,7 +14,7 @@ from aiogram.client.default import DefaultBotProperties
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "7606518006:AAGSgmiBquOUZoGAaOSrnp5fFOfgJ5S3R3s"
-BOT_USERNAME = "rating_profile"  # Бот юзернеймісіз (тек атауы)
+BOT_USERNAME = "Profileratingbot"  # Бот юзернеймісіз (тек атауы)
 CHANNEL_ID = -1002835648324
 ADMINS = [764515145]
 
