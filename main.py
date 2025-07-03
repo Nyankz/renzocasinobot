@@ -14,10 +14,10 @@ from aiogram.client.default import DefaultBotProperties
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "7606518006:AAGSgmiBquOUZoGAaOSrnp5fFOfgJ5S3R3s"
+BOT_USERNAME = "rating_profile"  # Бот юзернеймісіз (тек атауы)
 CHANNEL_ID = -1002835648324
 ADMINS = [764515145]
 
-# === ИНИЦИАЛИЗАЦИЯ ===
 bot = Bot(
     token=BOT_TOKEN,
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
@@ -26,7 +26,6 @@ dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 dp.include_router(router)
 
-# === БАЗА ДАННЫХ ===
 conn = sqlite3.connect("votes.db")
 c = conn.cursor()
 c.execute("""
@@ -51,18 +50,27 @@ CREATE TABLE IF NOT EXISTS votes (
 """)
 conn.commit()
 
-# === FSM ===
 class BattleState(StatesGroup):
     name1 = State()
     name2 = State()
     duration = State()
 
-# === /start ===
-@router.message(F.text == "/start")
+@router.message(F.text.startswith("/start"))
 async def start(message: Message):
-    await message.answer("Бұл бот голос батл жасауға арналған. Админ болсаңыз — /admin.")
+    if message.text.startswith("/start battle_"):
+        battle_id = int(message.text.split("_")[1])
+        c.execute("SELECT * FROM battles WHERE id=? AND is_active=1", (battle_id,))
+        battle = c.fetchone()
+        if not battle:
+            return await message.answer("Бұл батл аяқталған немесе табылмады.")
+        name1, name2 = battle[1], battle[2]
+        kb = InlineKeyboardBuilder()
+        kb.button(text=name1, callback_data=f"choose:{battle_id}:1")
+        kb.button(text=name2, callback_data=f"choose:{battle_id}:2")
+        await message.answer(f"Кімге дауыс бересіз?\n{battle[1]} | {battle[2]}", reply_markup=kb.as_markup())
+    else:
+        await message.answer("Бұл бот голос батл жасауға арналған. Админ болсаңыз — /admin.")
 
-# === /admin ===
 @router.message(F.text == "/admin")
 async def admin_panel(message: Message):
     if message.from_user.id not in ADMINS:
@@ -72,7 +80,6 @@ async def admin_panel(message: Message):
     kb.button(text="⛔ Батл тоқтату", callback_data="stop_battle")
     await message.answer("Админ панель:", reply_markup=kb.as_markup())
 
-# === FSM: Battle жасау ===
 @router.callback_query(F.data == "create_battle")
 async def ask_name1(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("1-қатысушының атын жазыңыз:")
@@ -101,37 +108,25 @@ async def create_battle(message: Message, state: FSMContext):
     name1, name2 = data['name1'], data['name2']
     end_time = datetime.utcnow() + timedelta(minutes=minutes)
     text = f"<b>🥊 Батл: {name1} | {name2}</b>\nДауыс беру астында!\n\n{name1} — 0 голос\n{name2} — 0 голос"
+    battle_id = get_next_battle_id()
+    vote_url = f"https://t.me/{BOT_USERNAME}?start=battle_{battle_id}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🗳 Голосовать", callback_data=f"vote:{name1}:{name2}")]
+        [InlineKeyboardButton(text="🗳 Голосовать", url=vote_url)],
+        [InlineKeyboardButton(text="💰 Дауыс сатып алу", url="https://t.me/oyuft")]
     ])
     sent = await bot.send_message(CHANNEL_ID, text, reply_markup=kb)
 
-    c.execute("INSERT INTO battles (name1, name2, message_id, chat_id, end_time) VALUES (?, ?, ?, ?, ?)",
-              (name1, name2, sent.message_id, sent.chat.id, end_time.isoformat()))
+    c.execute("INSERT INTO battles (id, name1, name2, message_id, chat_id, end_time) VALUES (?, ?, ?, ?, ?, ?)",
+              (battle_id, name1, name2, sent.message_id, sent.chat.id, end_time.isoformat()))
     conn.commit()
     await message.answer("✅ Батл жарияланды!")
     await state.clear()
     asyncio.create_task(timer_check())
 
-# === Дауыс беру ===
-@router.callback_query(F.data.startswith("vote:"))
-async def handle_vote(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    _, name1, name2 = callback.data.split(":")
-    c.execute("SELECT * FROM battles WHERE name1=? AND name2=? AND is_active=1 ORDER BY id DESC LIMIT 1", (name1, name2))
-    battle = c.fetchone()
-    if not battle:
-        return await callback.answer("⛔ Бұл батл аяқталған!", show_alert=True)
-
-    battle_id = battle[0]
-    c.execute("SELECT * FROM votes WHERE user_id=? AND battle_id=?", (user_id, battle_id))
-    if c.fetchone():
-        return await callback.answer("Сіз дауыс беріп қойғансыз.", show_alert=True)
-
-    kb = InlineKeyboardBuilder()
-    kb.button(text=name1, callback_data=f"choose:{battle_id}:1")
-    kb.button(text=name2, callback_data=f"choose:{battle_id}:2")
-    await callback.message.answer("Кімге дауыс бересіз?", reply_markup=kb.as_markup())
+def get_next_battle_id():
+    c.execute("SELECT MAX(id) FROM battles")
+    last_id = c.fetchone()[0]
+    return (last_id or 0) + 1
 
 @router.callback_query(F.data.startswith("choose:"))
 async def process_choice(callback: CallbackQuery):
@@ -144,6 +139,10 @@ async def process_choice(callback: CallbackQuery):
     if not battle or battle[8] == 0:
         return await callback.answer("Батл аяқталған.", show_alert=True)
 
+    c.execute("SELECT * FROM votes WHERE user_id=? AND battle_id=?", (user_id, battle_id))
+    if c.fetchone():
+        return await callback.answer("Сіз бұрын дауыс беріп қойғансыз.", show_alert=True)
+
     c.execute("INSERT INTO votes (user_id, battle_id, choice) VALUES (?, ?, ?)", (user_id, battle_id, choice))
     if choice == 1:
         c.execute("UPDATE battles SET votes1 = votes1 + 1 WHERE id = ?", (battle_id,))
@@ -152,16 +151,21 @@ async def process_choice(callback: CallbackQuery):
     conn.commit()
 
     name1, name2 = battle[1], battle[2]
-    votes1 = battle[6] + (1 if choice == 1 else 0)
-    votes2 = battle[7] + (1 if choice == 2 else 0)
-    new_text = f"<b>🥊 Батл: {name1} | {name2}</b>\nДауыс беру астында!\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос"
+    c.execute("SELECT votes1, votes2 FROM battles WHERE id=?", (battle_id,))
+    votes1, votes2 = c.fetchone()
+
+    text = f"<b>🥊 Батл: {name1} | {name2}</b>\nДауыс беру астында!\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос"
+    vote_url = f"https://t.me/{BOT_USERNAME}?start=battle_{battle_id}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🗳 Голосовать", callback_data=f"vote:{name1}:{name2}")]
+        [InlineKeyboardButton(text="🗳 Голосовать", url=vote_url)],
+        [InlineKeyboardButton(text="💰 Дауыс сатып алу", url="https://t.me/oyuft")]
     ])
-    await bot.edit_message_text(new_text, battle[4], battle[3], reply_markup=kb)
+    try:
+        await bot.edit_message_text(text, battle[4], battle[3], reply_markup=kb)
+    except Exception as e:
+        print(f"Edit error: {e}")
     await callback.answer("✅ Дауыс қабылданды")
 
-# === Таймер тексеру ===
 async def timer_check():
     while True:
         now = datetime.utcnow()
@@ -172,7 +176,6 @@ async def timer_check():
                 await stop_battle_by_id(b[0])
         await asyncio.sleep(5)
 
-# === Батл тоқтату (авто немесе /stop)
 async def stop_battle_by_id(battle_id):
     c.execute("SELECT * FROM battles WHERE id=? AND is_active=1", (battle_id,))
     b = c.fetchone()
@@ -186,7 +189,6 @@ async def stop_battle_by_id(battle_id):
     text = f"<b>⛔ Батл аяқталды!</b>\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос\n\n🥇 Жеңімпаз: {winner} 🎉"
     await bot.edit_message_text(text, b[4], b[3])
 
-# === /stop — белсенді батл тізімі
 @router.message(F.text == "/stop")
 async def stop_battle_menu(message: Message):
     if message.from_user.id not in ADMINS:
@@ -206,7 +208,6 @@ async def stop_selected_battle(callback: CallbackQuery):
     await stop_battle_by_id(battle_id)
     await callback.answer("Батл тоқтатылды.")
 
-# === Ботты іске қосу ===
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     asyncio.run(dp.start_polling(bot))
