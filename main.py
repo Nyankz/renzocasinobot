@@ -62,19 +62,19 @@ async def start(message: Message):
         c.execute("SELECT * FROM battles WHERE id=? AND is_active=1", (battle_id,))
         battle = c.fetchone()
         if not battle:
-            return await message.answer("Бұл батл аяқталған немесе табылмады.")
+            return await message.answer("Батл аяқталды/Батл закончен!")
         name1, name2 = battle[1], battle[2]
         kb = InlineKeyboardBuilder()
         kb.button(text=name1, callback_data=f"choose:{battle_id}:1")
         kb.button(text=name2, callback_data=f"choose:{battle_id}:2")
         await message.answer(f"Кімге дауыс бересіз?\n{battle[1]} | {battle[2]}", reply_markup=kb.as_markup())
     else:
-        await message.answer("Бұл бот голос батл жасауға арналған. Админ болсаңыз — /admin.")
+        await message.answer("Привет, {name}! Пока бот толко для батла! Вопросы: @oyuft")
 
 @router.message(F.text == "/admin")
 async def admin_panel(message: Message):
     if message.from_user.id not in ADMINS:
-        return await message.answer("Сізге рұқсат жоқ.")
+        return await message.answer("Доступ нету.")
     kb = InlineKeyboardBuilder()
     kb.button(text="➕ Батл жасау", callback_data="create_battle")
     kb.button(text="⛔ Батл тоқтату", callback_data="stop_battle")
@@ -107,7 +107,7 @@ async def create_battle(message: Message, state: FSMContext):
 
     name1, name2 = data['name1'], data['name2']
     end_time = datetime.utcnow() + timedelta(minutes=minutes)
-    text = f"<b>🥊 Батл: {name1} | {name2}</b>\nДауыс беру астында!\n\n{name1} — 0 голос\n{name2} — 0 голос"
+    text = f"<b> Батл! {name1}\n {name2}</b>\nДауыс беру астында!\n\n{name1} — 0 голос\n{name2} — 0 голос"
     battle_id = get_next_battle_id()
     vote_url = f"https://t.me/{BOT_USERNAME}?start=battle_{battle_id}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -154,7 +154,7 @@ async def process_choice(callback: CallbackQuery):
     c.execute("SELECT votes1, votes2 FROM battles WHERE id=?", (battle_id,))
     votes1, votes2 = c.fetchone()
 
-    text = f"<b>🥊 Батл: {name1} | {name2}</b>\nДауыс беру астында!\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос"
+    text = f"<b> Батл: {name1}\n {name2}</b>\nДауыс беру астында!\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос"
     vote_url = f"https://t.me/{BOT_USERNAME}?start=battle_{battle_id}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🗳 Голосовать", url=vote_url)],
@@ -164,7 +164,7 @@ async def process_choice(callback: CallbackQuery):
         await bot.edit_message_text(text, battle[4], battle[3], reply_markup=kb)
     except Exception as e:
         print(f"Edit error: {e}")
-    await callback.answer("✅ Дауыс қабылданды")
+    await callback.answer("Голос выдан!")
 
 async def timer_check():
     while True:
@@ -186,7 +186,7 @@ async def stop_battle_by_id(battle_id):
     name1, name2 = b[1], b[2]
     votes1, votes2 = b[6], b[7]
     winner = name1 if votes1 > votes2 else name2 if votes2 > votes1 else "Екеуі тең"
-    text = f"<b>⛔ Батл аяқталды!</b>\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос\n\n🥇 Жеңімпаз: {winner} 🎉"
+    text = f"<b>Батл аяқталды!</b>\n\n{name1} — {votes1} голос\n{name2} — {votes2} голос\n\n Победитель: {winner} Поздравлаю!"
     await bot.edit_message_text(text, b[4], b[3])
 
 @router.message(F.text == "/stop")
